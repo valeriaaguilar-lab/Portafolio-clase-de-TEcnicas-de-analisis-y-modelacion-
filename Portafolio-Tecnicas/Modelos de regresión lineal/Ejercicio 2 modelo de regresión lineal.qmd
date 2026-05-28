@@ -1,0 +1,53 @@
+---
+title: "Ejercicio 2 Modelo regresion lineal"
+author: "Valeria Aguilar"
+format: html
+editor: visual
+---
+
+leer el archivo
+
+```{r}
+fires <- read.csv("forestfires.csv")
+```
+
+Exploracion visual
+
+```{r}
+library(ggplot2)
+```
+
+Realizamos en gráfico
+
+```{r}
+ggplot(fires, aes(x = area)) +
+geom_histogram(bins = 40, fill = "palevioletred4", color = "white") +
+labs(title = "Distribución del área quemada", x = "Área (ha)", y = "Frecuencia") +
+theme_minimal()
+```
+
+El gráfico está sesgado a la izquierda. La mayoría de incendios están cerca de 0 ha.
+
+Vamos a crear una nueva variable en el dataset que tenga el calculo del logaritmo
+
+```{r}
+fires$log_area <- log(fires$area+1) #se suma 1 porque hay incendios con 0 ha y el logaritmo de 0 es infinito, +1 ayuda a evitar este error.
+
+ggplot(fires, aes(x = log_area)) +
+geom_histogram(bins = 30, fill = "turquoise4", color = "white") +
+labs(title = "log(área + 1)", x = "log(Área)", y = "Frecuencia") +
+theme_minimal()
+```
+
+La distibución mejoró, ahora se puede usar la variable transformada en un modelo de regresión lineal.
+
+Calculamos el modelo de regresion simple para la pregunta: ¿la temperatura predice el área quemada?
+
+```{r}
+modelo_simple <- lm(log_area~temp,data=fires)
+summary(modelo_simple) #área está en función/depende de la temperatura 
+```
+
+Con base a los valores de r cuadrada y el p-value podemos afirmar que la relacion no es significativa, ya que el valor de r2 es muy pequeño entonces no puede explicar nuestras variables y el valor del p-value es muy grande, además La temperatura no nos ayuda a predecir la cantidad de hectareas que se van a quemar. Intercepto: Cuando la temperatura es 0, el área quemada es de 0.8677 (no tiene sentido). 
+Estimado: Por cada grado que aumenta la temperatura, el área quemada aumenta 0.01288 P-value = 0.225 \>\> 0.05, por lo tanto no es significativo. R-cuadrada = 0.0028, 0.28%, la temperatura explica menos del 1% de la variabilidad del área quemada. 
+Conclusión: La temperatura por sí sola no nos ayuda a predecir la cantidad de héctareas que se van a quemar.

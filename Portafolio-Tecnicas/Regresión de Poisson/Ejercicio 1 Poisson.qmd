@@ -1,0 +1,96 @@
+---
+title: "Ejercicio 1 Poisson"
+author: "Valeria Aguilar"
+format: html
+editor: visual
+---
+
+
+Vamos a llamar al entorno el paquete tidyverse.
+
+```{r}
+#install.packages("tidyverse")
+library(tidyverse)
+```
+
+Vamos a calcular la probabilidad de ver 4 jaguares
+
+```{r}
+dpois(x = 4, lambda = 2) #probabilidad de ver 4 jaguares, si en promedio se ven 2 por mes.
+```
+
+calcular probabilidad de ver más de 3?
+
+```{r}
+ppois(q = 3, lambda = 2, lower.tail = FALSE) #probabilidad de ver 4, 5, 6...
+
+```
+
+Generar serie de tiempo aleatoria de avistamientos
+
+```{r}
+avistamientos_mes <- rpois(n = 12, lambda = 2) #12 meses de avistamientos con un promedio de 2 por mes.
+plot(avistamientos_mes, type = "b", main = "Avistamientos Mensuales Estimados")
+```
+
+Para cargar los datos de la base de datos:
+
+```{r}
+#read_csv se utiliza con tidyverse, si no tenemos instalado tidyverse se utiliza read.csv
+fires<-read_csv("SUOMI_VIIRS_C2_Central_America_7d.csv")
+```
+
+Vamos a filtrar solo detecciones confiables
+
+```{r}
+#Vamos a "planchar" los datos, es decir, utilizar solo algunos.
+#%>% es una tuberia, solo filtra la variable que se llama confidence %in% (dentro de) los que esta variable sea nominal 
+fires <- fires%>%
+  filter(confidence %in% c("nominal","high"))
+```
+
+ver la estructura de los datos
+
+```{r}
+str(fires$acq_date)
+```
+
+Como ya esta en fecha no se convierte a fecha.
+
+Vaamos a contar incendios por dia
+
+```{r}
+conteo_diario <- fires %>%
+filter(confidence %in% c("nominal", "high")) %>%
+mutate(acq_date = as.Date(acq_date),
+dia = as.numeric(acq_date - min(acq_date)) + 1) %>%
+group_by(dia, daynight) %>%
+summarise(
+n_incendios = n(),
+frp_media = mean(frp),
+.groups = "drop"
+) 
+#mutate(): crea dos nuevas variables: 1. acq_date, 2.dia 
+#group_by(dia, daynight): agrupa los datos por día y si fue de dia o de noche. 
+#summarise: para cada grupo calcula: *n_incendios: conteo de incendio ese día, * frp_media: potencia radiativa promedio del fuego
+```
+
+Modelo de Poisson.
+
+```{r}
+modelo<-glm(n_incendios ~ daynight+frp_media, family=poisson(link="log"),data=conteo_diario) #el número de incendios depende de si es de día o noche, además de la intensidad del fuego
+```
+
+```{r}
+summary(modelo)
+```
+
+P-values: Daynight \< 2e-16 -\> Es significativo frp_media \< 0.000392 -\> Es significativo
+
+Necesitamos la parte exponencial para poder interpretar los coeficinetes del modelo de poisson
+
+```{r}
+exp(coef(modelo)) # interpretar coeficientes
+```
+
+Intercepto: Cuando la frp_media es 0 y la categoria daynight es día, el número de incendios esperados es de 2602. DaynightN = (1-0.377)*100 = 62.3% frp_media = (1-0.97)*100 = 3% El modelo indica que durante la noche se espera que ocurra un 62.3% menos de incendios que durante el día, y por cada aumento en unidad de la intensidad del fuego (frp_media), el número de incendios disminuye un 3%. De otra manera: Durante la noche, el número esperado de incendios es 0.377 veces el número esperado durante el día. Noche = 37.7%, Día = 62.3%. frp_media = 0.97, por cada unidad que aumenta la intensidad del fuego, el número esperado de incendios se multiplica por 0.97, entonces existe una relación negativa, entre mayor intensidad del fuego, menor cantidad de incendios.

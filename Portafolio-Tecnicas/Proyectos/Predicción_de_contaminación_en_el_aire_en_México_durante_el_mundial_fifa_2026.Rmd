@@ -1,0 +1,449 @@
+---
+title: "Predicción de contaminación en el aire en México durante el mundial fifa 2026 : mediante análisis de series de tiempo"
+author: Lizalde Galindo Diego, Aguilar Chirino Valeria, Arregoite Hernández Evelin Sofía, Arianna Vanessa Beltrán Osnaya
+date: "2026-05-20"
+output:
+  html_document
+---
+#Introduccion
+Los megaeventos deportivos, como es la Copa Mundial de la FIFA, representan una celebración global y de desarrollo de infraestructura en las ciudades sede. Sin embargo, detrás del espectáculo deportivo suele existir distintas preocupaciones ambientales. En este caso, el impacto de la calidad del aire en las ciudades sede.
+
+Durante este evento, de aproximadamente un mes, las urbes anfitrionas llegan a experimentar transformaciones temporales en sus patrones de movilidad y actividad industrial. Como puede ser el incremento masivo de vuelos a nivel internacional, el uso extensivo de diferentes medios de transporte, el uso continuo de plantas de energía por la demanda hotelera y comercial, y en algunos casos, la activación de obras de infraestructura de última hora. Lo que llega a generar una gran emisión de contaminantes.
+
+Entre los contaminantes atmosféricos, el material particulado con diámetro inferior a 2.5 micras (PM2.5) es particularmente peligroso para la salud. Su tamaño diminuto perjudica a las defensas respiratorias naturales, penetra profundamente en los alvéolos pulmonares e incluso ingresa al torrente sanguíneo. La exposición a corto plazo a picos de PM2.5 se asocia con el aumento de crisis asmáticas, incidencia en enfermedades cardiovasculares agudas, irritación ocular y de vías respiratorias en población vulnerable.
+
+La Organización Mundial de la Salud (OMS) ha establecido que los promedios diarios de PM2.5 no deberían superar los 15 µg/m³ en más de 3-4 días al año. Una cifra que frecuentemente se rebasa durante eventos de tal magnitud.
+
+Por estás razones, la problemática ambiental que ocurre en estos mega eventos necesita una mayor comprensión y análisis cuantitativo con respecto a la calidad del aire. Con la finalidad de entender los problemas generados por la afluencia de extranjeros en el país y lo que conlleva su estancia.
+
+```{r}
+#Cargamos las librerias que vamos a usar:
+library(stringr) #
+library(terra) #
+library(dplyr) #
+library(zoo) #
+library(CausalImpact) #
+library(bsts)#
+library(ggplot2)
+```
+# Mundial Brasil 2014
+Para el uso de las series de tiempo debemos filtrar nuestros datos y pasar la base de datos a una tabla que podamos usar para analizar, por lo que cargamos una muestra de nuestra base.
+```{r}
+r <- rast("C:/Users/lizal/OneDrive/Documents/Tecnicas y analisis de modelado CA/Global PM25/LGHAP.Global_PM25.D001.A20140614.nc")
+plot(r)
+```
+Definimos la region (Rio de Janeiro) y recortamos el mapa conforme a sus coordenadas, priorizando zonas como aeropuertos y estadios importantes como el maracana.
+```{r}
+rio <- ext(-43.51, -43.15, -23.04, -22.78)
+r_rio <- crop(r, rio)
+
+plot(r_rio)
+```
+Calculamos el promedio de PM2.5 de ese dia.
+```{r}
+mean_pm25 <- global(r_rio, mean, na.rm = TRUE)
+
+print(mean_pm25)
+
+```
+Y con ayuda de la I.A. hicimos un loop para que este proceso se realizara en todos los 183 archivos que analizaremos. Saliendo un error que tiene que ver con el tipo de documento que usamos.
+```{r}
+files <- list.files("C:/Users/lizal/OneDrive/Documents/Tecnicas y analisis de modelado CA/Global PM25", pattern="nc$", full.names=TRUE)
+
+pm_series <- data.frame()
+
+for(f in files){
+
+  r <- rast(f)
+
+  r_crop <- crop(r, rio)
+
+  val <- global(r_crop, mean, na.rm=TRUE)
+
+  janeiro <- basename(f)
+  
+  fecha <- str_extract(janeiro, "\\d{8}")
+
+  pm_series <- rbind(
+  pm_series,
+  data.frame(
+    archivo = janeiro,
+    fecha = fecha,
+    pm25 = val[1,1]
+  )
+)
+}
+pm_series$fecha <- as.Date(pm_series$fecha,
+  format = "%Y%m%d"
+)
+```
+```{r}
+head(pm_series)
+```
+Este codigo solo sirve para descargarlo en un archivo .csv
+```{r}
+write.csv(
+  pm_series,
+  "pm25_series_Brazil.csv",
+  row.names = FALSE
+)
+```
+Ordenamos la serie
+```{r}
+pm_series <- pm_series %>%
+  arrange(fecha)
+```
+Creamos las zoo series
+```{r}
+#zoo 
+y <- zoo(pm_series$pm25,
+         pm_series$fecha)
+```
+Marcamos la fecha en la que empezo oficialmente el mundial
+```{r}
+#Fecha de inicio (intervencion) del mundial
+fecha_intervencion_brazil <- as.Date("2014-04-12")
+```
+```{r}
+pre_period  <- c(min(pm_series$fecha),
+                 fecha_intervencion_brazil - 1)
+
+post_period <- c(fecha_intervencion_brazil,
+                  max(pm_series$fecha))
+```
+Con el fin de identificar el impacto del Mundial, se aplicó un modelo bayesiano de intervención utilizando la librería CausalImpact.
+```{r}
+#Causal Impact
+impacto <- CausalImpact(
+  y,
+  pre.period = pre_period,
+  post.period = post_period
+)
+```
+```{r}
+summary(impacto)
+```
+```{r}
+summary(impacto, "report")
+
+plot(impacto)
+```
+
+# Mundial Rusia 2018
+Se repite el proceso con el mundial de 2018 en Rusia.
+```{r}
+r_ru <- rast("C:/Users/lizal/OneDrive/Documents/Tecnicas y analisis de modelado CA/Rusia PM25/LGHAP.Global_PM25.D001.A20180402.nc")
+plot(r_ru)
+```
+```{r}
+moscu <- ext(37.0, 38.2, 55.2, 56.4)
+r_moscu <- crop(r_ru, moscu)
+
+plot(r_moscu)
+```
+```{r}
+mean_pm25_ru <- global(r_moscu, mean, na.rm = TRUE)
+
+print(mean_pm25_ru)
+```
+
+```{r}
+files_ru <- list.files("C:/Users/lizal/OneDrive/Documents/Tecnicas y analisis de modelado CA/Rusia PM25", pattern="nc$", full.names=TRUE)
+
+pm_series_moscu <- data.frame() 
+
+for(f in files_ru){
+
+  r_ru <- rast(f)
+
+  r_crop <- crop(r_ru, moscu)
+
+  val <- global(r_crop, mean, na.rm=TRUE)
+  
+  moscow <- basename(f)
+  
+  fecha <- str_extract(moscow, "\\d{8}")
+
+  pm_series_moscu <- rbind(
+  pm_series_moscu,
+  data.frame(
+    archivo = basename(f),
+    fecha = fecha,
+    pm25 = val[1,1]
+  )
+)
+}
+pm_series_moscu$fecha <- as.Date(pm_series_moscu$fecha,
+  format = "%Y%m%d"
+)
+```
+```{r}
+head(pm_series_moscu)
+```
+
+```{r}
+write.csv(
+  pm_series_moscu,
+  "pm25_series_Rusia.csv",
+  row.names = FALSE
+)
+```
+```{r}
+
+pm_series_moscu <- pm_series_moscu %>%
+  arrange(fecha)
+```
+```{r}
+y_ru <- zoo(pm_series_moscu$pm25,
+         pm_series_moscu$fecha)
+```
+```{r}
+fecha_intervencion_moscu <- as.Date("2018-06-14")
+```
+```{r}
+pre_period_ru <- c(
+  min(pm_series_moscu$fecha),
+  fecha_intervencion_moscu - 1
+)
+
+post_period_ru <- c(
+  fecha_intervencion_moscu,
+  max(pm_series_moscu$fecha)
+)
+```
+Con el fin de identificar el impacto del Mundial de Rusia 2018 sobre las concentraciones de PM2.5, se aplicó un modelo bayesiano de intervención utilizando la librería CausalImpact.
+```{r}
+impacto_rusia <- CausalImpact(
+  data = y_ru,
+  pre.period = pre_period_ru,
+  post.period = post_period_ru
+)
+```
+```{r}
+summary(impacto_rusia)
+```
+```{r}
+summary(impacto_rusia, "report")
+
+plot(impacto_rusia)
+```
+
+# Predicción para México 2026
+Leemos los resultados obtenidos de la estacion en Nezahualcóyotl del SINAICA, esto ya que es la informacion mas reciente que encontramos cerca del aeropuerto.
+```{r}
+mexico <- read.csv("C:/Users/lizal/Downloads/Datos Mexico marzo a mayo - d3_aire01_14.csv.csv")
+```
+Agrupamos los datos
+```{r}
+mexico_diario <- mexico %>%
+  
+  group_by(Fecha) %>%
+  
+  summarise(
+    pm25 = mean(`valor`, na.rm = TRUE)
+  )
+```
+Los vizualizamos
+```{r}
+head(mexico_diario)
+```
+```{r}
+mexico_diario$fecha <- as.Date(
+  mexico_diario$Fecha
+)
+```
+Graficamos los datos que tenemos.
+```{r}
+library(ggplot2)
+
+ggplot(mexico_diario,
+       aes(x = fecha,
+           y = pm25)) +
+  
+  geom_line() +
+  
+  labs(
+    title = "PM2.5 diario CDMX",
+    x = "Fecha",
+    y = "PM2.5"
+  )
+```
+Empezamos a aplicar el modelo
+```{r}
+y_mex <- zoo(
+  mexico_diario$pm25,
+  mexico_diario$fecha
+)
+```
+```{r}
+ss <- AddLocalLevel(
+  list(),
+  y_mex
+)
+
+modelo_mex <- bsts(
+  y_mex,
+  state.specification = ss,
+  niter = 1000
+)
+```
+# Escenarios de predicción
+Inciamos la prediccion de nuestro modelo, usando los porcentajes obtenidos obtenemos 3 graficas diferentes que presentaran una prediccion optimista, moderada y extrema siendo cada aumento el porcentaje relativo que sufrio Brasil y Rusia respectivamente,
+
+```{r}
+pred_mex <- predict(
+  modelo_mex,
+  horizon = 40
+)
+```
+Prediccion moderada
+```{r}
+pred_base <- pred_mex$mean
+
+pred_mundial <- pred_base * 1.1035
+```
+```{r}
+fechas_futuras <- seq.Date(
+  from = as.Date("2026-06-11"),
+  by = "day",
+  length.out = 40
+)
+
+forecast_df <- data.frame(
+  fecha = fechas_futuras,
+  base = as.numeric(pred_base),
+  mundial = as.numeric(pred_mundial)
+)
+```
+
+```{r}
+ggplot(forecast_df) +
+
+  geom_line(aes(
+    x = fecha,
+    y = base,
+    color = "Sin Mundial"
+  ),
+  linewidth = 1) +
+
+  geom_line(aes(
+    x = fecha,
+    y = mundial,
+    color = "Con Mundial"
+  ),
+  linewidth = 1) +
+
+  labs(
+    title = "Predicción PM2.5 CDMX durante Mundial 2026",
+    x = "Fecha",
+    y = "PM2.5",
+    color = ""
+  )
+```
+```{r}
+forecast_df$aumento <- forecast_df$mundial -
+                       forecast_df$base
+mean(forecast_df$aumento)
+```
+Prediccion optimista
+```{r}
+pred_base <- pred_mex$mean
+
+pred_mundial <- pred_base * 1.078
+```
+```{r}
+fechas_futuras <- seq.Date(
+  from = as.Date("2026-06-11"),
+  by = "day",
+  length.out = 40
+)
+
+forecast_df <- data.frame(
+  fecha = fechas_futuras,
+  base = as.numeric(pred_base),
+  mundial = as.numeric(pred_mundial)
+)
+```
+
+```{r}
+ggplot(forecast_df) +
+
+  geom_line(aes(
+    x = fecha,
+    y = base,
+    color = "Sin Mundial"
+  ),
+  linewidth = 1) +
+
+  geom_line(aes(
+    x = fecha,
+    y = mundial,
+    color = "Con Mundial"
+  ),
+  linewidth = 1) +
+
+  labs(
+    title = "Predicción PM2.5 CDMX durante Mundial 2026",
+    x = "Fecha",
+    y = "PM2.5",
+    color = ""
+  )
+```
+```{r}
+forecast_df$aumento <- forecast_df$mundial -
+                       forecast_df$base
+mean(forecast_df$aumento)
+```
+Prediccion extrema
+```{r}
+pred_base <- pred_mex$mean
+
+pred_mundial <- pred_base * 1.13
+```
+```{r}
+fechas_futuras <- seq.Date(
+  from = as.Date("2026-06-11"),
+  by = "day",
+  length.out = 40
+)
+
+forecast_df <- data.frame(
+  fecha = fechas_futuras,
+  base = as.numeric(pred_base),
+  mundial = as.numeric(pred_mundial)
+)
+```
+
+```{r}
+ggplot(forecast_df) +
+
+  geom_line(aes(
+    x = fecha,
+    y = base,
+    color = "Sin Mundial"
+  ),
+  linewidth = 1) +
+
+  geom_line(aes(
+    x = fecha,
+    y = mundial,
+    color = "Con Mundial"
+  ),
+  linewidth = 1) +
+
+  labs(
+    title = "Predicción PM2.5 CDMX durante Mundial 2026",
+    x = "Fecha",
+    y = "PM2.5",
+    color = ""
+  )
+```
+```{r}
+forecast_df$aumento <- forecast_df$mundial -
+                       forecast_df$base
+mean(forecast_df$aumento)
+```
+Conclusion 
+En conclusión, el análisis realizado mediante modelos BSTS y la metodología CausalImpact permitió identificar un incremento en las concentraciones de PM2.5 asociado a los Mundiales de Brasil 2014 y Rusia 2018. A partir de la comparación entre los valores observados y el escenario estimado, se obtuvieron evidencias de que este tipo de eventos masivos pueden generar aumentos en la contaminación atmosférica debido al incremento en movilidad, actividad económica y concentración de población. En el caso de Brasil 2014, se obtuvo un efecto absoluto promedio cercano a 1.2 µg/m³ y un efecto acumulado aproximado de 130.7 µg/m³ durante el periodo posterior al inicio del evento.  
+A partir de estos antecedentes, se utilizaron bases de datos actuales de la Ciudad de México para estimar tres posibles escenarios de impacto del Mundial 2026 sobre las concentraciones de PM2.5. El escenario optimista se desarrolló tomando como referencia el comportamiento observado durante Brasil 2014, estimando un incremento aproximado de 7.7%; el escenario extremo se basó en los resultados obtenidos para Rusia 2018, considerando un aumento cercano al 13%; mientras que el escenario intermedio o moderado representó una condición promedio entre ambos casos.
+En este sentido, el uso de herramientas estadísticas como BSTS y CausalImpact nos resultó útil para evaluar cambios en series temporales ambientales y proyectar posibles efectos futuros asociados a eventos internacionales de gran escala. Finalmente, el estudio resalta la importancia de fortalecer las estrategias de monitoreo y gestión ambiental en la Ciudad de México, con el fin de prevenir y mitigar posibles afectaciones a la calidad del aire y a la salud pública durante la realización del Mundial 2026.

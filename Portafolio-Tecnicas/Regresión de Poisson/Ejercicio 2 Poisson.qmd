@@ -1,0 +1,92 @@
+---
+title: "Ejercicio 2 Poisson"
+author: "Aguilar Valeria"
+format: html
+editor: visual
+---
+
+Vamos a llamar a la libreria tydiverse, que ya tenemos previamente instalada.
+
+```{r}
+library(tidyverse)
+```
+
+Vamos a instalar las paqueterias "sp" y "rworldmap" y los vamos a llamar al entorno con la funcion library.
+
+```{r}
+#install.packages("sp")
+library(sp)
+#install.packages("rworldmap")
+library(rworldmap)
+```
+
+Vamos a cargar e archivo csv.
+
+```{r}
+fires<- read.csv("fires2.csv")
+```
+
+Vamos a crear nuevas variables y agrupar los datos que tenemos por país y fecha
+
+```{r}
+conteo <- fires %>% 
+group_by(pais, acq_date) %>%
+summarise(
+n_incendios = n(),
+frp_media = mean(frp),
+brillo_med = mean(bright_ti4),
+prop_noche = mean(daynight == "N"),
+.groups = "drop"
+)  #agrupamos los incendios por país y fecha 
+```
+
+```{r}
+nrow(conteo)
+```
+
+Primero vamos a identificar la variable de referencia
+
+```{r}
+levels(factor(conteo$pais))
+```
+
+```{r}
+#verificamos el tipo de variable 
+class(conteo$acq_date)
+#cambiaos a fecha
+conteo <- conteo %>%
+  mutate(acq_date = as.Date(acq_date))
+```
+
+Cambiamos de numerico a fecha
+
+```{r}
+conteo <- conteo %>%
+mutate(dia = as.numeric(acq_date - min(acq_date)) + 1)
+
+modelo <- glm(n_incendios ~ pais + acq_date + frp_media + prop_noche,
+
+family = poisson(link = "log"),
+data = conteo)
+#el número de incendios está en función del país, la fecha, la intensidad de fuego promedio y la proporción de incendios nocturnos.
+```
+
+Vamos a ver los resultados
+
+```{r}
+summary(modelo)
+```
+
+P-value: acq_date = 0.3228 \> 0.05, por lo tanto la fecga no es estadisticamente significativo.
+
+Vamos a calcular los exponenciales de los coeficientes.
+
+```{r}
+exp(coef(modelo))
+```
+
+frp_media = 1.022, Por cada unidad que aumenta la intensidad del fuego, el numero esperado de incendios se multiplica por 1.022.(1-1.022)\*100 = 2.2%, es decir, por cada auemnto en la intensidad, aumenta 2.2% el \# de incendios.
+
+prop_noche = 0.2489, Por cada aumento en una unidad en la proporción de incendios nocturnos, el número de incendios se multiplica por 0.2489. (1-0.2489)\*100 = 75.11%, es decir, en la noche ocurren 75% menos incendios.
+
+El país de referencia es Belice, un ejemplo con el intercepto con México = 62.33, entonces cuando belice tiene 0 incendios, México tiene 62.33, demostrando así que México tiene más incendios que Belice.

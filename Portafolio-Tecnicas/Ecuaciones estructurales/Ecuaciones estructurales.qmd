@@ -1,0 +1,131 @@
+---
+title: "Ecuaciones estructurales"
+author: "Valeria Aguilar"
+format: html
+editor: visual
+---
+
+Vamos a cargar los paquetes que vamos a utilizar
+
+```{r}
+install.packages("deSolve")
+install.packages("ggplot2")
+library(deSolve)
+library(ggplot2)
+```
+
+Vamos a definir el modelo con datos simulados donde: r = tasa de crecimiento k = capacidad de carga a = tasa de ataque e = eficiencia m = mortalidad x = algas (presas) y = dafmias (depredadores)
+
+```{r}
+modelo_lago<-function(t,state, parameters){
+  with(as.list(c(state,parameters)),{
+    dx <- r*x*(1-x/k)-a*x*y
+    dy <- e*a*x*y-m*y
+    return(list(c(dx,dy)))
+  })
+}
+```
+
+Establecer parametros y condiciones
+
+```{r}
+params <- c(r=1.2,k=50,a=0.1,e=0.4,m=0.4)
+estado_inicial <- c(x=20,y=5)
+tiempo <- seq(0,100, by=0.1)
+```
+
+Resolucion
+
+```{r}
+out <- as.data.frame(ode(y = estado_inicial, times = tiempo,func = modelo_lago, parms = params))
+```
+
+Vamos a visualizar los datos
+
+```{r}
+ggplot(out, aes(x=time))+
+  geom_line(aes(y=x,color="Algas (Presa)"), linewidth=1)+
+  geom_line(aes(y=y,color="Dafnias (Depredador)"), linewidth=1) +
+  labs(title= "Dinamica Estabilizada: Presa-Depredador",
+       x="Dias", y="Biomasa", color= "Especie") +
+  theme_minimal()
+```
+
+Analisis de datos: Interpretación
+
+```{r}
+#Cual fue la poblacion maxima de presa?
+max_presa <- max(out$y)
+max_presa
+
+#Cual fue la poblacion maxima de depredadores
+max_depredador <- max(out$y)
+max_depredador
+
+#En que momento (tiempo) ocurrio el pico de depredadores 
+tiempo_pico <- out$time[which.max(out$y)]
+
+tiempo_pico
+
+summary(out)
+
+```
+
+INTERPRETACIÓN 1. Estabilidad: A diferencia del modelo simple, aquí las oscilaciones se amortiguan. El sistema tiende al equilibrio. 2. Capacidad de Carga (K): Las algas no crecen al infinito aunque no haya dafnias; el espacio y luz las limitan. 3. El Desfase: El pico de Dafnias ocurre siempre después del pico de Algas. Ejemplo sencillo con números.El Pico de Presas (22.52) son las pizzas que se cocinan. El Pico de Depredadores (10.74) son los clientes con mucha hambre. Si hay 22 pizzas y 10 clientes, todos comen bien, pero no sobra casi nada. Si llegan 5 clientes más (un aumento en la tasa de reproducción del depredador), ¡se acaba la pizza y la pizzería quiebra
+
+Vamos a ver una simulacion en la que se usan pesticidas en ese lugar.
+
+Parametros
+
+```{r}
+params_impacto <- c(r=0.5,k=50,a=0.02,e=0.4,m=0.5)
+estado_inicial <- c(x=20,y=5)
+tiempo <- seq(0,100,by=0.1)
+```
+
+Resolucion 2
+
+```{r}
+out_impacto <- as.data.frame(ode(y = estado_inicial, times = tiempo,func = modelo_lago, parms = params_impacto))
+```
+
+Vamos a graficar ambos escenarios
+
+```{r}
+# Graficamos primero el Sano (Líneas continuas)
+plot(out$time, out$x, type="l", col="forestgreen", lwd=2,
+ylim=c(0, 60), main="Comparativa de Salud del Ecosistema",
+xlab="Días", ylab="Biomasa (Individuos)")
+lines(out$time, out$y, col="firebrick", lwd=2)
+
+# Añadimos el Impactado (Líneas punteadas lty=2)
+lines(out_impacto$time, out_impacto$x, col="forestgreen", lwd=2, lty=2)
+lines(out_impacto$time, out_impacto$y, col="firebrick", lwd=2, lty=2)
+
+# Leyendas
+legend("topright",
+legend=c("Algas (Sano)", "Dafnias (Sano)", "Algas (Impacto)", "Dafnias (Impacto)"),
+col=c("forestgreen", "firebrick", "forestgreen", "firebrick"),
+lty=c(1, 1, 2, 2), lwd=2, cex=0.8)
+```
+
+Interpretacion: Las Dafnias estan muriendo a causa de los pesticidas
+
+Vamos a calcular la estabilidad de ambos escenarios
+
+```{r}
+#Usamos los ultimos 30 dias para evitar el "caos del inicio"
+prom_sano <- mean(out$y[out$time>70])
+prom_imp <- mean(out_impacto$y[out_impacto$time>70])
+
+#2. Formula de Cambio Porcentual 
+perdida_porcentual <- ((prom_sano-prom_imp)/prom_sano)*100
+
+#3. Resultado final en consola 
+cat("--------------------------------------------\n",
+"ANÁLISIS DE IMPACTO EN EL DEPREDADOR:\n",
+"Biomasa Promedio (Sano): ", round(prom_sano, 1), "\n",
+"Biomasa Promedio (Impacto): ", round(prom_imp, 1), "\n",
+"PÉRDIDA TOTAL DE BIOMASA: ", round(perdida_porcentual, 1), "%\n",
+"--------------------------------------------\n")
+```

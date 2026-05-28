@@ -1,0 +1,107 @@
+---
+title: "Modelo de regresión lineal"
+author: "Aguilar Valeria"
+format: html
+editor: visual
+---
+
+Vamos a generar numero aleatorios con la función set.seed vamos a controlar que sean los mismos cada vez que abramos el documento
+
+```{r}
+set.seed(123)
+x <- rnorm(100) #creamos 100 valores aleatorios de x
+e <- rnorm(100, mean = 0, sd = 1) #creamos 100 valores de error 
+y <- 2 + 1.5*x + e  #c reamos la variable dependiente y siguiendo la ecuación de una recta.
+plot(x, y)
+
+```
+
+Vamos a crear una base de datos con un data frame, con la funcion lm vamos a hacer una regresion lineal.En el resumen nos indica los codigos significativos con \*\*.
+
+```{r}
+datos <- data.frame(x,y)
+reg.simple <- lm(y ~ x, data=datos) #lm = Linear Model
+# y~x se lee como: y está en función de x 
+summary(reg.simple)
+```
+
+Interpretacion del modelo: x estimada = 1.44753, Por cada unidad que aumenta x, y aumenta 1.44753. (es la pendiente). Intercepto = 1.89720 es el valor de y cuando X es cero ó el modelo estima que cuando x es 0, y vale 1.89720. P-value \< 2.2e-16, es significativo y tiene poder predictivo. R-cuadrada = 0.6518, es decir el 65.18% de la variabilidad de los datos de y es explicada por la variable x. El restante es el ruido o error
+
+Vamos a instalar el paquete palmer penguins y despues llamarlo al entorno
+
+```{r}
+#install.packages("palmerpenguins")
+library(palmerpenguins)
+```
+
+Vamos a trabajar con la base de datos penguins del paquete palmerpenguins, vamos a ver la estructura de las variables.
+
+```{r}
+str(penguins) #Muestra la estructura: 344 observaciones y 8 variables.
+```
+
+Vamos a hacer una muestra en la que solo seleccionaremos los pinguinos Adelaida.
+
+```{r}
+Ad<-subset(penguins, species=="Adelie")
+pairs(Ad[,3:6],pch=19,col="deeppink4",lower.panel=NULL) #Ad es el objeto que creamos, abrimos un corchete [filas, columnas], en el caso anterior solo queriamos las columnas por lo que primero tenemos una , sin valores antes.
+```
+
+En la gráfica se observa como se relacionan el largo del pico, la profundidad del pico, la longitud de la aleta y la masa corporal sólo para la especie adelaida.
+
+Vamos a ver como se veria la grafica con todos los pinguinos.
+
+```{r}
+pairs(penguins[,3:6], pch=19, col=c("deeppink","palegreen","paleturquoise4")[penguins$species], lower.panel=NULL)
+```
+
+Veamos las correlaciones entre variables
+
+```{r}
+#install.packages("psych")
+library(psych)
+pairs.panels(Ad[, 3:6],
+method = "pearson", # correlación
+density = FALSE, # gráficos de densidad
+ellipses = FALSE, # elipses de confianza
+lm = TRUE) # recta
+```
+
+¿Como se veria el modelo de regresión lineal ? El modelo responde: ¿La masa corporal del pinguino Adelaida predice la longitud de su pico?
+
+```{r}
+modelo1<-lm(Ad$bill_length_mm~Ad$body_mass_g)
+#Creo un objeto que se llama modelo1, le asigno la funcion lm que es util para el modelo lineal y adentro coloco la variable dependiente (y), el largo del pico depende de la masa corporal.
+summary(modelo1)
+```
+
+p value = 2.955e-13, por tanto es significativo, entonces no es casualidad. Hipotesis: entre más masa corporal tenga el pinguino Adelaida la longitud de su pico será más grande. Intercepto es cuando nuestra vaiable x vale 0, si la masa corporal es 0 la longitud del pico es 2.69 mm, si la masa corporal aumenta una unidad entonces la longitud del pico aumenta 3.18e-03 (aumenta el estimado) Adjusted r squared, indica que tanto la variable x explica la variable y, en este caso fue de 0.30, es decir, 30%, se necesita de minimo .6. En otras palabras, la masa corporal explica solo el 30% de la variacion en la longitud del pico de los pinguinos Adelaida. El error estándar mientras más pequeño, mejor.
+
+MODELO DE REGRESIÓN MÚLTIPLE
+
+```{r}
+#Vamos a instalar el paquete visreg para trasnformar la variable deep_mm de numerica a categorica con la funcion cut
+
+#install.packages("visreg")
+library(visreg)
+```
+
+Voy a transformar la variable
+
+```{r}
+Ad$bill_depth_cat<-cut(Ad$bill_depth_mm,3,labels=c("Pequeño","Mediano","Grande"))
+#transformamos la variable de la profundidad del pico en 3 categorias; pequeño, mediano y grande.
+```
+
+Vamos a correr el modelo de regresion lineal multiple
+
+```{r}
+model.Ad_cat <- lm(bill_length_mm ~ body_mass_g + bill_depth_cat, data = Ad)
+visreg(model.Ad_cat, "body_mass_g", "bill_depth_cat", gg = TRUE)  #la longitud del pico depende (~) de la masa corporal y la profundidad del pico.
+```
+
+```{r}
+summary(model.Ad_cat)
+```
+
+Intercepto: La longitud del pico es de 27.67 mm cuando la masa corporal y la profundidad del pico es cero. No sale la categoria pequena, porque esa la esta usando de base, para compararla con mediano y grande. Compara las categorias con la categoria base. Estimados: Por cada unidad que aumenta la masa corporal la longitud del pico aumenta 2.88 e-3. Por cada unidad que aumenta la prfundidad del pico mediano, la longitud del pico aumenta 0.56, mientras que con un pico grande aumenta 0.72. P-value: Para la masa corporal es del 8.27e-9 por lo tanto es significativa, sin embargo para la profundidad del pico mediano es de 0.224 y 0.307 para un pico grande, esto quiere decir que no son estadisticamente signifactivos para la predicción de la longitud del pico. R-Cuadrada = 0.3089, Las variables masa corporal y profundidad del pico explican solamente el 30.89% de la longitud del pico. Este modelo no es mejor que el anterior, ya que añadir la categoria de profundidad del pico no hizo alguna diferencia.

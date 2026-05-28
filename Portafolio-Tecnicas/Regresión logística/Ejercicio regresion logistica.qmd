@@ -1,0 +1,73 @@
+---
+title: "Modelo de regresión logística"
+author: "Aguilar Valeria"
+format: html
+editor: visual
+---
+
+El modelo de regresión logística lo utilizamos cuando nuestra variable dependiente es binaria (0/1, presencia/ausencia, sí/no).
+
+Cargar las librerias y paquetes necesarios. Vamos a trabajar con una libreria que ya esta por default en R
+
+```{r}
+install.packages("vegan")
+library(vegan)
+```
+
+Vamos a usar dos datasets que estan precargados en ese paquete.
+
+```{r}
+data("varespec");data("varechem")
+```
+
+Vamos a crear una variable binaria:convertiremos la variable de interes en binaria.
+
+```{r}
+#antes vamos a cambiarle el nombre a varechem, es decir, creamos otro objeto
+df <- varechem
+#cuando ponemos signo de pesos, estamos llamando cierta columna del dataset 
+#en la sig. linea de codigo estamos creando una nueva columna que se llama presencia, ya que en el dataset original no existe.
+df$presencia <- ifelse(varespec$Cladfimb>0,1,0) 
+#Cladfimb>0,1,0 significa que si cladfimb es mayor a 0, 1 si es verdadero, 0 si es falso 
+```
+
+Hacemos el modelo logístico
+
+```{r}
+modelo1 <- glm(presencia ~ pH, data=df, family=binomial)
+#si la base de datos es peque;a es recomendable utilizar una unica variable, como en este caso que solo utilizamos pH 
+#La presencia de la especie está en función del pH 
+```
+
+Vamos a ver los resultados
+
+```{r}
+summary(modelo1)
+
+```
+
+Interpretacion: P-value = 0.067 \> 0.05, por lo tanto, no es estadísticamente significativo.
+
+Vamos a calcular la exponencial a los coeficientes.
+
+```{r}
+exp(coef(modelo1))
+```
+
+Interpretacion: pH = (1-0.00084)\*100 = 99.9%, es decir, por cada unidad que aumenta de pH, la probabilidad de presencia de la especie disminuye 99.9%. Intercepto: Cuando el pH es 0, la presencia de la especie es de 2.89e10.
+
+```{r}
+predichos <- ifelse(fitted(modelo1)>0.5,1,0)
+table(real=df$presencia, Predicho=predichos)
+#tenemos nuestra base de datos con la presencia de nuestra especie, hicimos un modelo donde predecimos la presencia de la especie dependiendo de el pH 
+```
+
+El modelo solo una vez predijo la presencia donde no había, tuvo 23 aciertos de 24, por tanto tuvo un 95.83% de precisión al momento de predecir.
+
+Vamos a calcular la pseudo R
+
+```{r}
+1 - (modelo1$deviance/modelo1$null.deviance)
+```
+
+R-cuadrada = 0.364\*100 = 36.4%, el pH explica sólo el 36.4% de la variabilidad de la presencia/ausencia de la especie. Conclusión: La probabilidad de presencia de la especie disminuye cuando el pH aumenta.

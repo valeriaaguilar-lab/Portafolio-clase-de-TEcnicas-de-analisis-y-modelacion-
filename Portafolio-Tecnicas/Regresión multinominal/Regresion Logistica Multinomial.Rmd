@@ -1,0 +1,113 @@
+---
+title: "Regresion logistica multinomial"
+author: "Valeria Aguilar "
+date: "2026-03-04"
+output:
+  html_document:
+    df_print: paged
+---
+
+La Regresión Logística Multinominal tiene tres o más categorías que no tienen un orden natural, a diferencia de la regresión logística que es binaria (0/1).
+
+Primero vamos a instalar algunos paquetes
+```{r}
+#install.packages("pacman")
+library(pacman)
+#esta funcion sirve para saber que paquetes tenemos instalados, y los que no tengamos los instala de una vez y los llama al entorno 
+p_load(tidyverse,ggplot2,nnet,broom,knitr,kableExtra,gtsummary,ggeffects,marginaleffects,car)
+```
+
+llamamos al entorno nuestro dataset
+```{r}
+df_MAR <- read.csv("M.A.R_Cleaned.csv")
+```
+Vamos a cambiar nuestras variables de categoricas a factores 
+```{r}
+#vamos a planchar nuestra base de datos
+df_MAR <- df_MAR %>%
+  mutate(
+    culgrieve = factor(culgrieve,
+                       labels = c("No Grievances Expressed","Ending Discrimination", "Creating/Strengthening Remedial Policies")),
+    legisrep = factor(legisrep,
+                      labels = c("No","Yes")),
+    execrep = factor(execrep,
+                     labels=c("No","Yes")),
+    grplang = factor(grplang, 
+                     labels = c("<10% Speak Native Lang","Some Speak Native Lang", "Most Speak Native Lang")),
+    trsntlkin = factor(trsntlkin, 
+                       labels = c("No Close Kindred","Close Kindred/Not Adjoining Base","Close Kindred, Adjoining Base","Close Kindred, More than 1 Country")),
+  )  #convertimos variables numéricas a factores con etiquetas descriptivas.
+```
+Pregunta a resolver con el modelo: ¿Qué características están asociadas con los tipos de quejas culturales expresadas por los grupos etnoculturales en riesgo? 
+
+Vamos a realizar dos gráficas con el fin de comparar la categoria 0 con la categoria 1 de la variable culgrieve
+```{r}
+ggplot(df_MAR %>% filter(culgrieve == "No Grievances Expressed" | 
+                         culgrieve == "Ending Discrimination"),
+       aes(x=as.numeric(grplang), y=as.numeric(culgrieve))) +
+  geom_point() +
+  geom_smooth(method="loess", se=FALSE) +
+  theme_ggeffects()
+```
+Interpretacion: Hay una relación no lienal, los grupos que hablan algo de lengua nativa tienen mayor probabilidad de quejas que los grupos que hablan poca o mucha.
+
+Vamos a comparar la categoria 0 (No quejas) con la categoria 2 (Crear politicas)
+```{r}
+ggplot(df_MAR %>% filter(culgrieve=="No Grievances Expressed" | culgrieve=="Creating/Strengthening Remedial Policies"),
+      aes(as.numeric(grplang),y=as.numeric(culgrieve))) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE) +
+  theme_ggeffects()
+```
+Otra vez se muetsra una distribución normal, donde los que hablan algo de lengua nativa, son más probable de crear políticas.
+
+Vamos a ver los resultados 
+```{r}
+fit_basic <- multinom(culgrieve ~ grplang, data = df_MAR) #las quejas culturales dependen del nivel del lenguaje nativo del grupo.
+```
+
+```{r}
+summary(fit_basic)
+```
+MULTINOMIAL
+1. Estamos dividiendo los coeficientes entre el error estandar: >1.96 es significativo. (esto sustituye nuestro p_value)
+2. Analizar el signo (+) (-).
+3.Calcular e interpretar odds ratios. exp(coef): OR-1=...x100=...%
+4. Revisar el intercepto.Intercepto=variable base (cuando x es 0)
+5. AIC.
+
+Vamos a hacer nuestra tabla más bonita y entendible.
+```{r}
+tidy(fit_basic, conf.int = TRUE)
+```
+Ahora veremos como se ve la tabla con kable
+```{r}
+tidy(fit_basic, conf.int=TRUE) %>%
+  kable() %>%
+  kable_styling("basic",full_width = FALSE)
+```
+
+Agregamos más variables al modelo
+```{r}
+fit_full <- multinom(culgrieve ~ grplang + trsntlkin + legisrep + execrep + pct_ctry, data=df_MAR)
+summary(fit_full)
+```
+AIC: 
+
+Vamos a visualizar los resultados de forma mas ordenada 
+```{r}
+tidy(fit_full,conf.int=TRUE) %>%
+  kable()%>%
+  kable_styling("basic",full_width = FALSE)
+```
+
+
+Vamos a calcular los odd ratios
+```{r}
+#install.packages("broom.helpers")
+library(broom.helpers)
+tbl_regression(fit_full,exp=TRUE)
+```
+Interpretacion:
+El nivel de lenguaje de los grupos si importa, grupos donde "algunos" hablan lengua nativa tienen mayor probabilidad de tener quejas que los grupos que tienen poco o mucho. 
+

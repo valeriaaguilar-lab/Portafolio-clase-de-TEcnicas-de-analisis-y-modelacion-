@@ -1,0 +1,237 @@
+---
+title: "Redes. Peregrinaje Mediatico"
+author: "Driselda"
+date: "5/2/2022"
+output:
+  html_document:
+    df_print: paged
+---
+Alvarado-Sizzo, I., Sánchez-Aguirre, D. P., & Galicia Aldaz, N. Y. (2024). Del turismo fílmico al peregrinaje mediático: Visitando a “la Mamá Coco real” en el México indígena. Economía Sociedad y Territorio, 24(74), Article 74. https://doi.org/10.22136/est20242134
+
+
+Librerias a utilizar
+```{r}
+library(pacman) #pacman: este paquete ayuda a gestionar otros paquetes 
+p_load(tidyverse,igraph,dplyr) #p_load es la función de pacman que carga los demás paquetes y si no están instalados, automaticamente lo hace.
+```
+Llamar el archivo al entorno
+```{r}
+coco<-read_csv("Lista_nodos.csv") #llamamos el archivo al entorno
+coco<- na.omit(coco) # na.omit omite los valores nulos del dataset
+```
+Hacer una tabla de frecuencias
+```{r}
+frecuencias.Coco<-table(coco$From,coco$To) #crea una tabla de contingencia 
+View(frecuencias.Coco)
+```
+
+Guardar como data frame
+```{r}
+frecuencias.Coco<-as.data.frame(frecuencias.Coco) #se convbierte la tabla en un data frame más manejable con sus respectivas frecuencias 
+
+frecuencias.Coco<-filter(frecuencias.Coco,Freq > 0) #elimina las combinaciones que no ocurren, es decir, de frecuencia 0 y sólo deja las que existen 
+```
+
+
+Agregar un ID
+```{r}
+nodos1<-as.data.frame(levels(frecuencias.Coco$Var1))
+colnames(nodos1)[1]<-"nodo"
+nodos2<-as.data.frame(levels(frecuencias.Coco$Var2))
+colnames(nodos2)[1]<-"nodo"
+
+df_list <- list(nodos1,nodos2)
+df_list<-df_list %>% reduce(full_join, by='nodo') #full join, se unen ambos nodos from nodos 1 to nodos 2
+
+nodes<-df_list %>% 
+  distinct(nodo, .keep_all=TRUE) #distinct: elimina los nodos duplicados 
+
+
+nodes <- nodes %>% rowid_to_column("id") #rowind_to_colum: se agrega un ID numérico 
+```
+
+```{r}
+per_route <- frecuencias.Coco %>%  
+  group_by(Var1, Var2) %>%  #se agrupan los datos por var1 y var2
+  summarise(weight = Freq) %>% #el peso es la frecuencia con la que ocurrió cada conexion 
+  ungroup()
+per_route
+
+
+edges <- frecuencias.Coco %>% 
+  left_join(nodes, by = c("Var1" = "nodo")) #left_join: combina la tabla de freciencias.coco con la tabla de nodos 
+colnames(edges)[4]<-"from" #columa 4 = from (ID del nodo de origen)
+edges <- edges %>% 
+  left_join(nodes, by = c("Var2" = "nodo")) 
+colnames(edges)[5]<-"to" #columna 5 = to (ID del nodo destino) 
+colnames(edges)[3]<-"weigth" #columna 3 = weigth 
+```
+
+```{r}
+edges <- select(edges, from, to, weigth)
+```
+Convertir dataset a grafos
+```{r}
+
+library(igraph)
+routes_igraph <- graph_from_data_frame(d = edges, vertices = nodes, directed = TRUE) #graph_from_data_frame: toma la lista de edges y nodos y los convierte en grafos, que igraph puede entender. 
+plot(routes_igraph, edge.arrow.size = 0.2)
+plot(routes_igraph, layout = layout_with_graphopt, edge.arrow.size = 0.2)
+
+
+plot(routes_igraph, layout = layout_with_graphopt, 
+     edge.arrow.size = 0.2,
+     vertex.label = V(routes_igraph)$nodo, #vertex.label: nombre del nodo no el ID
+     vertex.label.dist = 1.5,      
+     vertex.label.cex = 0.7) #tamaño de la letra 
+
+```
+
+
+```{r}
+library(tidygraph)
+library(igraph)
+routes_tidy <- tbl_graph(nodes = nodes, edges = edges, directed = TRUE) #tbl_graph: crea un objeto similar a igraph pero para trabajar con tidyverse 
+routes_igraph_tidy <- as_tbl_graph(routes_igraph) #
+routes_tidy
+routes_tidy %>% 
+  activate(edges) %>% 
+  arrange(desc(weigth))
+
+```
+Graficar
+
+
+Opcion 1
+```{r}
+library(ggraph)
+ggraph(routes_tidy, layout = "graphopt") + 
+  geom_node_point() +
+  geom_edge_link(aes(width = weigth), alpha = 0.8) + 
+  scale_edge_width(range = c(0.2, 2)) +
+  geom_node_text(aes(label = nodo), repel = TRUE) +
+  labs(edge_width = "Peregrinación mediática") +
+  theme_graph()
+```
+Opcion 2
+```{r}
+ggraph(routes_igraph, layout = "linear") + 
+  geom_edge_arc(aes(width = weigth), alpha = 0.8) + 
+  scale_edge_width(range = c(0.2, 2)) +
+  geom_node_text(aes(label = nodo)) +
+  labs(edge_width = "Media pilgrame") +
+  theme_graph()
+#grafico con las leyendas con una inclinacion de 45° para que no estén amontonados. 
+ggraph(routes_igraph, layout = "linear") + 
+  geom_edge_arc(aes(width = weigth), alpha = 0.8) + 
+  scale_edge_width(range = c(0.2, 2)) +
+  geom_node_text(aes(label = nodo), 
+                 angle = 45, hjust = 1, vjust = 1, size = 3) + 
+  labs(edge_width = "Media pilgrim") +  
+  theme_graph()
+
+```
+Opcion 3 en 3D
+```{r}
+pacman::p_load(visNetwork,networkD3)
+
+
+visNetwork(nodes, edges)
+edges <- mutate(edges, width = weigth/5 + 1)
+visNetwork(nodes, edges) %>% 
+  visIgraphLayout(layout = "layout_with_fr") %>% 
+  visEdges(arrows = "middle")
+
+```
+
+Opcion 4
+```{r}
+nodes_d3 <- mutate(nodes, id = id - 1)
+edges_d3 <- mutate(edges, from = from - 1, to = to - 1)
+forceNetwork(Links = edges_d3, Nodes = nodes_d3, Source = "from", Target = "to", 
+             NodeID = "nodo", Group = "id", Value = "weigth", 
+             opacity = 1, fontSize = 16, zoom = TRUE)
+
+
+```
+Identificar clusters
+```{r}
+# Girvan-Newman sobre grafo dirigido
+gn_dir <- cluster_edge_betweenness(routes_igraph, 
+                                    weights = E(routes_igraph)$weigth,
+                                    directed = TRUE)   # <- respeta dirección
+
+cat("Comunidades con Girvan-Newman (dirigido):", length(gn_dir), "\n")
+cat("Modularidad:", modularity(gn_dir), "\n")
+
+V(routes_igraph)$community_gn <- membership(gn_dir)
+
+plot(routes_igraph, 
+     vertex.color = V(routes_igraph)$community_gn,
+     vertex.label = V(routes_igraph)$nodo,
+     vertex.label.cex = 0.7,
+     edge.arrow.size = 0.3,
+     edge.width = sqrt(E(routes_igraph)$weigth),
+     layout = layout_with_graphopt,
+     main = "Comunidades con Girvan-Newman (direccional)")
+```
+¿Cuántos grupos hay?
+```{r}
+gn_dir <- cluster_edge_betweenness(routes_igraph, 
+                                    weights = E(routes_igraph)$weigth,
+                                    directed = TRUE)
+# Número total de comunidades
+length(gn_dir)
+```
+¿A qué grupo pertenece cada nodo?
+```{r}
+# Vector con la comunidad de cada nodo
+membership(gn_dir)
+
+# Añadirlo al grafo para futuros análisis
+V(routes_igraph)$community_gn <- membership(gn_dir)
+```
+
+
+```{r}
+sankeyNetwork(Links = edges_d3, Nodes = nodes_d3, Source = "from", Target = "to", 
+              NodeID = "nodo", Value = "weigth", fontSize = 8, unit = "Menciones")
+
+```
+
+
+
+
+```{r}
+betweenness(routes_tidy)
+```
+
+
+Nodo 1 Arraigo cultural
+Nodo 18 Mundo ordinario
+Nodo 13 Festividades
+
+El nodo con más vertices
+```{r}
+which(igraph::degree(routes_tidy) == max(igraph::degree(routes_tidy)))
+```
+Arraigo cultural y Localidad
+
+To extract the most central node, we can use the max() function to extract the name of the node with the most edges.
+```{r}
+max(igraph::betweenness(routes_tidy))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

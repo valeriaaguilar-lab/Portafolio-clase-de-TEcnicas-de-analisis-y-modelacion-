@@ -1,0 +1,124 @@
+---
+title: "BSTS"
+author: "Driselda SA"
+date: "2026-05-03"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# --------------------------------------------------------------------
+# Análisis de Impacto Causal sobre Oxígeno Disuelto en la Bahía (Bay)
+# --------------------------------------------------------------------
+
+
+```{r}
+install.packages("CausalImpact")
+library(CausalImpact)
+library(zoo) #zoo transforma el formato en ts (series de tiempo)
+library(dplyr)
+library(tidyverse)
+```
+
+
+
+Cargar datos obtenidos de https://www.kaggle.com/datasets/sahirmaharajj/water-quality-data?resource=download
+
+```{r}
+datos <- read.csv("BKB_WaterQualityData_2020084.csv", stringsAsFactors = FALSE)
+datos$Read_Date <- as.Date(datos$Read_Date, format = "%m/%d/%Y") #convertimos el formato a tipo de fecha para poder usarlo como serie de tiempo
+
+```
+
+
+Filtrar sitio "Bay" y columnas relevantes
+```{r}
+
+bay <- datos %>%  #filtramos los datos que son de la bahia 
+  filter(Site_Id == "Bay") %>% 
+  select(Read_Date, 
+         oxigeno = "Dissolved.Oxygen..mg.L.", 
+         temp_agua = "Water.Temp...C.", 
+         pH = "pH..standard.units.", 
+         salinidad = "Salinity..ppt.",
+         secchi = "Secchi.Depth..m.") #cambiamos el nombre de las variables para identificarlas más fácil 
+```
+
+
+Convertir a numérico y ordenar
+```{r}
+bay <- bay %>% 
+  mutate(across(-Read_Date, as.numeric)) %>% #as.numeric cambia a numerico 
+  arrange(Read_Date)
+```
+
+
+
+Eliminar filas sin datos en las variables clave
+```{r}
+bay <- bay %>% drop_na(oxigeno, temp_agua, pH, salinidad, secchi) #drop_na se utiliza para eliminar valores nulos 
+```
+
+
+
+*Definir periodos pre y post intervención*
+
+Se seleccionó el 1 de enero de 2010 como fecha de intervención para el análisis de CausalImpact porque representa el inicio del año en que se desarrolló y comenzó a implementar el histórico 'Chesapeake Bay TMDL' (Total Maximum Daily Load), el mayor plan de control de la contaminación establecido por la EPA. Aunque el TMDL fue oficialmente establecido el 29 de diciembre de 2010, los trabajos preparatorios, la presentación de borradores de planes de implementación por parte del estado de Virginia y los primeros cambios normativos se sucedieron a lo largo de 2010. Este conjunto de medidas, que incluía nuevas regulaciones para aguas enriquecidas con nutrientes (efectivas también en diciembre de 2010) y una financiación estatal significativa para la reducción de la contaminación, representan una intervención clara y documentada destinada a mejorar parámetros de calidad del agua como el oxígeno disuelto, la reducción de nutrientes o la transparencia del agua
+```{r}
+fecha_intervencion <- as.Date("2010-01-01") #creamos un objeto de la fecha de intervencion que creemos que es
+pre_period  <- c(min(bay$Read_Date), fecha_intervencion - 1) #min=para la fecha minima, e intervencion -1, nuestro periodo previo a la intervencion 
+post_period <- c(fecha_intervencion, max(bay$Read_Date)) #desde la fecha de intervencion hasta la fecha máxima 
+```
+
+
+
+Crear zoo series
+```{r}
+y <- zoo(bay$oxigeno, bay$Read_Date) #y convierte las variables oxígeno y fecha a tipo zoo
+predictores <- bay[, c("temp_agua", "pH", "salinidad", "secchi")] #la variables oxígeno depende de la temperatura del agua, pH, salinidad y secchi
+X <- zoo(predictores, bay$Read_Date)
+datos_zoo <- cbind(y, X) #juntamos nuestra y & x en datos_zoo
+```
+
+
+
+Ejecutar el modelo
+```{r}
+impacto <- CausalImpact(datos_zoo, 
+                        pre.period = pre_period, 
+                        post.period = post_period)
+```
+
+
+
+Resultados
+```{r}
+summary(impacto)
+summary(impacto,"report") #reporte escrito, da la interpretacion del summary
+plot(impacto)
+```
+
+El modelo devuelve un efecto promedio de –0.15 mg/L en el oxígeno disuelto, con un intervalo de confianza del 95 % de [–2.6, 2.0] y una probabilidad de efecto causal del 50 %.
+
+    1. ¿Qué significa exactamente que la “probabilidad de un efecto causal” sea del 50 %?
+    Significa que existe la misma probabilidad de que el efecto observado se deba a la intervencion o a intervenciones naturales
+   
+   2.  ¿Cómo interpretarías estos resultados ante un gestor ambiental que esperaba una mejora clara?
+   Se odria interpretar que no se detecto una mejora clara en el oxigeno disuelto despues de la interpretacion en el intervalo de tiempo observado
+
+  3.  ¿Se puede afirmar que la intervención no tuvo ningún efecto? Justifica tu respuesta.
+No se puede afirmar que la intervencion no tuvo ningun efecto. El intervalo de confianza incluye posibles efeectos positivos y negativos, por lo que los datos no permiten concluir con seguridad si hubo o no un impacto 
+
+En este análisis se utilizó oxígeno disuelto como variable respuesta, pero el TMDL de la Bahía de Chesapeake se diseñó principalmente para reducir nutrientes y sedimentos.
+
+   4. ¿Por qué el oxígeno disuelto podría no ser la variable más adecuada para detectar de forma temprana el impacto de una reducción de nutrientes?
+   Podria no ser la mejor variable porque responde de manera indirecta y lenta a los cambios del ecosistema.Ademas de que el oxigeno disulto esta influeciado por muchos factores externos.
+
+   5. Propón al menos dos variables alternativas que podrían reflejar mejor la respuesta del ecosistema a corto/medio plazo y explica el mecanismo que las une con la intervención.
+   -Concentracion de nitrogeno y fosforo, estas variables estan directamente relacionadas con la intervencion, ya que el  MDL busca redicir nutrientes.
+   -Concentracion de clorofila-a, refleja la cantidad de fitoplanton presente en el  agua.
+

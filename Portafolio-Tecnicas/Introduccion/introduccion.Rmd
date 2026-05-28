@@ -1,0 +1,253 @@
+---
+title: "Introducción"
+author: "Valeria Aguilar"
+date: "2026-03-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+6==6
+6==7
+```
+Existen operadores relacionales y lógicos 
+
+Creación de objetos:un objeto puede contener cualquier tipo de dato,es necesario asignarle un nombre. Esta acción se lleva a cabo mediante un "operador de asignación"(<-)
+```{r}
+amigo <- "Ara"
+amigo
+```
+FUNCIONES: en R es un conjunto de instrucciones que realiza una tarea especifica. La funcion debe tener parametros de entrada, separados por comas (,) y puede devolver un resultado (valor de retorno)
+```{r}
+suma <- function(a,b){
+  resultado <- a+b
+  return(resultado)
+}
+suma(34,23)
+```
+
+Tambien hay funciones ya existentes 
+
+FUNCIONES BASICAS 
+```{r}
+#numeros aleatorios 
+aleatorio <- runif(20, min=10, max=30)
+
+sum(aleatorio)   #suma automatica
+mean(aleatorio) #promedio 
+median(aleatorio) #mediana 
+sd(aleatorio) #desviacion estandar 
+min(aleatorio)  #minimo
+max(aleatorio) #maximo 
+length(aleatorio) #longitud 
+```
+Actividad 1 
+```{r}
+#Vamos a fijar nuestro directorio 
+setwd("C:/Users/ItzSo/OneDrive/Documentos/R_modelacion")
+```
+Actividad 2
+Ahora vamos a definir nuestros objetos 
+```{r}
+a <- 2+43
+b <- 23-12
+```
+haremos algunas comprobaciones 
+```{r}
+a==b
+a!=b
+a<b
+```
+Actividad 3
+```{r}
+#crearemos una funcion
+division <- function(arg1,arg2){
+  resultado <- arg1/arg2
+  return (resultado)
+}
+division(28,14)
+```
+
+
+ESTRUCTURAS DE FUNCIONES 
+
+Vectores:coleccion ordenada de datos del mismo tipo, su organizacion es unidimensional 
+pueden declararse con la funcion c() (concatenar). No se pueden mezclar numeros con caracteres.
+
+Son unidimensionales, es decir, solo una fila 
+```{r}
+#Vectores
+perros <- c("nippy", "cherk", "tasha","boba","duende")
+perros
+
+edades <- c(12,8,5,3,2)
+edades
+
+class(perros) #para saber que tipo de dato es nuestro vector, es decir, numerico (int, float), caracter, logico (verdadero/falso, si/no)
+
+perros[2] #para saber que esta en el segundo lugar de nuestro vector 
+perros[c(1,3)] 
+perros[2:4]
+
+#vector numerico 
+length(edades)
+
+```
+Vamos a crear un vector por Secuencia 
+```{r}
+#vectores operador 
+vector_sec <- 1:10
+vector_sec
+
+#vectores funcion "seq()"
+vector_by <- seq(from=0, to=10, by=2)
+vector_by
+```
+Se pueden realizar operaciones a traves de los operadores 
+```{r}
+a <- c(2,4,6,8)
+b <-c(1,3,5,7)
+```
+
+Matrices: 
+Una matriz es una estructura de datos bidimensional que almacena datos del mismo tipo en filas y columnas. Se pueden realizar con la funcion "matrix()"
+
+```{r}
+mat_nom <- matrix(c("lili","ana","nell","lana","ted", "Tod"),
+                  nrow=2, ncol=3)
+mat_nom
+
+mat_num <- matrix(1:30, ncol=6, nrow=5)
+mat_num
+```
+
+
+Lista:
+Es una estructura de datos de diferentes tipos y longitudes
+
+```{r}
+mi_list <- list(
+  Nombre = "lili",
+  Edad = 25,
+  Meses = c("marzo","abril","mayo"),
+  Faltas = c(3,5,1),
+  Aprobado = TRUE,
+  Calificaciones = data.frame(Materia=
+                                c("Mate","Fisica","Arte"),
+                              Puntaje=c(8,10,9))
+)
+mi_list
+```
+
+Data Frame:
+Es una estructura de datos bidimensional que organiza los datos en filas y columnas, puede contener columnas de diferentes tipos de datos.  
+
+```{r}
+#primero creamos nuestros vectores
+perros <- c("nippy", "cherk", "tasha","boba","duende")
+perros
+edades <- c(12,8,5,3,2)
+edades
+
+#ahora creamos nuestro dataframe
+df <- data.frame(perros=perros,edad=edades)
+df
+```
+```{r}
+#guardar nuestro daraframe
+write.csv(df, file="mi primer dataframe", row.names=FALSE)
+
+#cargar tu dataframe 
+perros_df <- read.csv("mi primer dataframe")
+
+```
+
+INDEXAR: 
+Acceder, extraer o modificar 
+
+FUNCIONES BÁSICAS 
+```{r}
+head(iris) #mostar el encabezado de la base de datos 
+dim(iris)  #dimensiones
+nrow(iris)  #numero de filas
+ncol(iris)  #numero de columnas 
+summary(iris) #resumen 
+plot(iris$Sepal.Length, iris$Sepal.Width)  #grafico de dispersion basico 
+hist(iris$Sepal.Length) #histograma basico
+```
+
+LIBRERIAS: 
+Es un paquete de R diseñado para explorar, manipular y transformar datos. 
+
+
+```{r}
+install.packages("tidyverse")#instalar paquete 
+library(tidyverse) #cargar paquete 
+```
+
+```{r}
+mtcars %>%
+  head()
+```
+```{r}
+head(mtcars)
+```
+```{r}
+#seleccionar columnas especificas 
+mtcars%>%
+  select(mpg, cyl, hp) %>%
+  filter(hp>100) %>%
+  mutate(kpl=mpg*0.425) %>%
+  group_by(cyl) %>%
+  summarise()
+  
+
+```
+```{r}
+library(readxl)
+getwd()
+# Cargar archivo de Excel (reemplaza con la ruta real)
+datos <- read_excel("../Herramientas_avanzadas/ejemplo_datos.xlsx")
+
+# Ver los primeros datos
+head(datos)
+```
+```{r}
+# Filtrar filas donde la columna 'nombre' es 'Juan'
+datos %>%
+  filter(nombre == "Juan")
+```
+```{r}
+# Buscar filas que contienen 'agua' en la columna 'descripcion'
+datos %>%
+  filter(str_detect(descripcion, "agua"))
+```
+
+```{r}
+installed.packages("ggplot2") #"ggplot" es para crear graficas 
+library(ggplot2)
+ggplot(iris, aes(x=Sepal.Length,
+                 y=Petal.Length,
+                 color=Species))+
+  geom_point()+
+  scale_fill_brewer()
+```
+
+```{r}
+ggplot(iris, aes(x=Sepal.Length,
+                 y=Sepal.Width,))+
+  geom_point(aes(color=Species))+
+  theme_void()
+```
+```{r}
+ggplot(iris, aes(x=Sepal.Length,
+                 y=Sepal.Width,))+
+  geom_point(aes(color=Species))+
+  facet_wrap(~Species)
+```
+
+
+

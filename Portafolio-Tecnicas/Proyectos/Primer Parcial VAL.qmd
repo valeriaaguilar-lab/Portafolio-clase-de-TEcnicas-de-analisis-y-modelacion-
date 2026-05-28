@@ -1,0 +1,78 @@
+---
+title: "Examen Primer parcial: Modelación y técnicas de análisis en ciencias ambientales"
+subtitle: "Licenciatura en Ciencias de la Tierra"
+author: "Valeria Aguilar"
+format: html
+editor: visual
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+    number_sections: true
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r paquetes}
+declaratorias_emergencia
+library(readr)
+#install.packages("tidyverse")# este paquete incluye varios paquetes(readr,dplyr,ggplot2,tibble,tidyr)
+library("tidyverse")
+```
+
+# Información de la base de datos asignada
+
+Lee la base de datos
+```{r datos-asignados, echo=FALSE}
+datos <- read_csv("declaratorias_emergencia.csv")
+str(datos)#muestra el numero de variables
+head(datos)#muestra las primeras filas para ver los datos
+summary(datos)#muestra las estadisticas descriptivas 
+```
+**Descripción de las variables**:
+
+> *En cuanto a variables las mas relebantes serian los años, entidades federativas de México,boletines con fecha, eltipo de fenomeno donde destaca el HIdrometeorologico yh su amenaza naturaldonde aparece lluvia, helada severa.En cuanto los valores son algo vartiables mayormente y a primera vista aparecen valores de cero, pero igual valores muy altos.*
+
+------------------------------------------------------------------------
+# Selección y justificación de variables
+
+## Variables seleccionadas
+
+# ── Seleccionen y, si es necesario, limpien las variables que van a modelar ────
+
+```{r seleccion-variables}
+library(dplyr)
+datos <- datos %>%
+  select (poblacion_afectada,amenaza_natural)
+
+```
+## Justificación de la selección 
+
+> **Variable respuesta (Y):** *(poblacion_afectada, numerica, numero de personas afectadas por el evento)*
+>_
+> **Variables predictoras (X):** *(amenaza_natural, nominal, Lluvias,Heladas,Granizo,etc)*
+>
+> **Hipótesis sustantiva:** *se espera que el tipo de amenaza muestre el como los diferentes eventos ponen en mayor o menor riesgo a la poblacion*
+
+------------------------------------------------------------------------
+# Elección y ajuste del modelo
+
+## Justificación del tipo de modelo elegido
+
+> **Modelo seleccionado:** *Poisson*
+>
+> **Justificación:** *Se utilizara el modelo de Poisson,ya que la variable de poblacion afectada es una variable contable en base a cada amenaza natural.Los modelos de poisson son perfectos para medir variables conteables, permitiendon evaluar con variables predictorias*
+
+## Corran el modelo
+
+```{r modelo}
+modelo <- glm(poblacion_afectada - amenaza_natural + entidad_federativa,
+              data = datos_modelo,
+              family = poisson)
+summary(modelo)
+```

@@ -1,0 +1,111 @@
+---
+title: "Ejercicio Ecuaciones diferenciales"
+author: "Valeria Aguilar"
+format: html
+editor: visual
+---
+
+Ejercicio. Modelo de Impacto Ambiental en el "Río Esmeralda"
+
+Primero llamamos los paquetes a utilizar
+
+```{r}
+install.packages("deSolve")
+install.packages("ggplot2")
+library(deSolve)
+library(ggplot2)
+```
+
+Vamos a definir el modelo con datos simulados, donde: r = tasa de crecimiento k = capacidad de carga a = tasa de ataque e = eficiencia m = mortalidad x = macroinvertebrados acuaticos (presas) y = peces locales (depredadores)
+
+```{r}
+modelo_rio <- function(t, state, parameters) {
+with(as.list(c(state, parameters)), {
+dx <- r * x * (1 - x / K) - a * x * y
+dy <- e * a * x * y - m * y
+return(list(c(dx, dy)))
+})
+}
+```
+
+Vamos a establecer los parametros y condiciones en estado SANO
+
+```{r}
+params <- c(r=1.5, K=100, a=0.1, e=0.2, m=0.4)
+estado_inicial <- c(x=50, y=20)
+tiempo <- seq(0, 150, by=0.1)
+```
+
+Resolucion
+
+```{r}
+out <- as.data.frame(ode(y = estado_inicial, times = tiempo,func = modelo_rio, parms = params))
+```
+
+Vamos a ver el resumen estadistico
+
+```{r}
+summary(out)
+```
+
+```{r}
+ggplot(out, aes(x=time))+
+  geom_line(aes(y=x,color="Macroinvertebrados (Presa)"), linewidth=1)+
+  geom_line(aes(y=y,color="Peces (Depredador)"), linewidth=1) +
+  labs(title= "Dinamica Estabilizada: Presa-Depredador",
+       x="Dias", y="Biomasa", color= "Especie") +
+  theme_minimal()
+```
+
+Ahora estableceremos los parametros y condiciones en estado IMPACTADO
+
+```{r}
+params_impacto <- c(r=0.6, K=100, a=0.04, e=0.2, m=0.5)
+estado_inicial <- c(x=50, y=20)
+tiempo <- seq(0, 150, by=0.1)
+```
+
+Resolucion
+
+```{r}
+out_impacto <- as.data.frame(ode(y = estado_inicial, times = tiempo,func = modelo_rio, parms = params_impacto))
+
+summary(out)
+```
+
+Vamos a ver la grafica comparativa entre ambos escenarios Sano vs Impactado
+
+```{r}
+# Graficamos primero el Sano (Líneas continuas)
+plot(out$time, out$x, type="l", col="olivedrab", lwd=2,
+ylim=c(0, 70), main="Comparativa de Salud del Ecosistema",
+xlab="Días", ylab="Biomasa (Individuos)")
+lines(out$time, out$y, col="thistle", lwd=2)
+# Añadimos el Impactado (Líneas punteadas lty=2)
+lines(out_impacto$time, out_impacto$x, col="olivedrab", lwd=2, lty=2)
+lines(out_impacto$time, out_impacto$y, col="thistle", lwd=2, lty=2)
+# Leyendas
+legend("topright",
+legend=c("Macroinvertebrados (Sano)", "Peces (Sano)", "Macroinvertebrados (Impacto)", "Peces (Impacto)"),
+col=c("olivedrab", "thistle", "olivedrab", "thistle"),
+lty=c(1, 1, 2, 2), lwd=2, cex=0.8)
+```
+
+Analisis estadistico
+
+```{r}
+#Usamos los ultimos 30 dias para evitar el "caos del inicio"
+prom_sano <- mean(out$y[out$time>70])
+prom_imp <- mean(out_impacto$y[out_impacto$time>70])
+
+#2. Formula de Cambio Porcentual 
+perdida_porcentual <- ((prom_sano-prom_imp)/prom_sano)*100
+
+#3. Resultado final en consola 
+cat("--------------------------------------------\n",
+"ANÁLISIS DE IMPACTO EN EL DEPREDADOR:\n",
+"Biomasa Promedio (Sano): ", round(prom_sano, 1), "\n",
+"Biomasa Promedio (Impacto): ", round(prom_imp, 1), "\n",
+"PÉRDIDA TOTAL DE BIOMASA: ", round(perdida_porcentual, 1), "%\n",
+"--------------------------------------------\n")
+```
